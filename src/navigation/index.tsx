@@ -1,4 +1,5 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createDrawerNavigator } from '@react-navigation/drawer';
 import { HeaderButton, Text } from '@react-navigation/elements';
 import {
   createStaticNavigation,
@@ -13,62 +14,89 @@ import { Profile } from './screens/Profile';
 import { Settings } from './screens/Settings';
 import { Updates } from './screens/Updates';
 import { NotFound } from './screens/NotFound';
+import Test1 from './screens/Test1';
+import Test2 from './screens/Test2';
+import Test3 from './screens/Test3';
+import Test4 from './screens/Test4';
+import ResultsScreen from './screens/ResultsScreen';
 
-const HomeTabs = createBottomTabNavigator({
+
+const Drawer = createDrawerNavigator({
   screens: {
     Home: {
       screen: Home,
       options: {
-        title: 'Feed',
-        tabBarIcon: ({ color, size }) => (
-          <Image
-            source={newspaper}
-            tintColor={color}
-            style={{
-              width: size,
-              height: size,
-            }}
-          />
-        ),
+        title: 'Home',
       },
     },
-    Updates: {
-      screen: Updates,
-      options: {
-        tabBarIcon: ({ color, size }) => (
-          <Image
-            source={bell}
-            tintColor={color}
-            style={{
-              width: size,
-              height: size,
-            }}
-          />
+    ResultsScreen: {
+      screen: ResultsScreen,
+      options: ({ navigation }) => ({
+        presentation: "modal",
+        headerRight: () => (
+          <HeaderButton onPress={navigation.goBack}>
+            <Text>Close</Text>
+          </HeaderButton>
         ),
-      },
+      }),
+    },
+    Test1: {
+      screen: Test1,
+      options: ({ navigation }) => ({
+        presentation: "modal",
+        title: "Test 1",
+        headerRight: () => (
+          <HeaderButton onPress={navigation.goBack}>
+            <Text>Close</Text>
+          </HeaderButton>
+        ),
+      }),
+    },
+    Test2: {
+      screen: Test2,
+      options: ({ navigation }) => ({
+        presentation: "modal",
+        title: "Test 2",
+        headerRight: () => (
+          <HeaderButton onPress={navigation.goBack}>
+            <Text>Close</Text>
+          </HeaderButton>
+        ),
+      }),
+    },
+    Test3: {
+      screen: Test3,
+      options: ({ navigation }) => ({
+        presentation: "modal",
+        title: "Test 3",
+        headerRight: () => (
+          <HeaderButton onPress={navigation.goBack}>
+            <Text>Close</Text>
+          </HeaderButton>
+        ),
+      }),
+    },
+    Test4: {
+      screen: Test4,
+      options: ({ navigation }) => ({
+        presentation: "modal",
+        title: "Test 4",
+        headerRight: () => (
+          <HeaderButton onPress={navigation.goBack}>
+            <Text>Close</Text>
+          </HeaderButton>
+        ),
+      }),
     },
   },
 });
 
 const RootStack = createNativeStackNavigator({
   screens: {
-    HomeTabs: {
-      screen: HomeTabs,
+    Drawer: {
+      screen: Drawer,
       options: {
-        title: 'Home',
-        headerShown: false,
-      },
-    },
-    Profile: {
-      screen: Profile,
-      linking: {
-        path: ':user(@[a-zA-Z0-9-_]+)',
-        parse: {
-          user: (value) => value.replace(/^@/, ''),
-        },
-        stringify: {
-          user: (value) => `@${value}`,
-        },
+        headerShown: false, 
       },
     },
     Settings: {
@@ -94,7 +122,9 @@ const RootStack = createNativeStackNavigator({
   },
 });
 
+
 export const Navigation = createStaticNavigation(RootStack);
+
 
 type RootStackParamList = StaticParamList<typeof RootStack>;
 
