@@ -1,45 +1,70 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, View, Text, Button, ScrollView } from 'react-native';
+import tasks from './questions';
+
+interface Answer {
+  content: string;
+  isCorrect: boolean;
+}
+
+interface Task {
+  question: string;
+  answers: Answer[];
+  duration: number;
+}
 
 export default function Test1() {
-  const handleAnswer = (answer: string) => {
-    console.log(`Wybrana odpowiedź: ${answer}`);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [score, setScore] = useState(0);
+  const [isQuizCompleted, setIsQuizCompleted] = useState(false);
+
+  const currentQuestion = tasks[currentQuestionIndex] as Task;
+
+  const handleAnswer = (isCorrect: boolean) => {
+    if (isCorrect) {
+      setScore(score + 1);
+    }
+
+    if (currentQuestionIndex + 1 < tasks.length) {
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
+    } else {
+      setIsQuizCompleted(true);
+    }
   };
+
+  if (isQuizCompleted) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.questionText}>Quiz ukończony!</Text>
+        <Text style={styles.timerText}>Twój wynik: {score} / {tasks.length}</Text>
+        <Button title="Zacznij ponownie" onPress={() => {
+          setCurrentQuestionIndex(0);
+          setScore(0);
+          setIsQuizCompleted(false);
+        }} />
+      </View>
+    );
+  }
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.questionSection}>
-        <Text style={styles.questionText}>Pytanie 1 z 10</Text>
-        <Text style={styles.timerText}>Czas: 28 sek</Text>
+        <Text style={styles.questionText}>Pytanie {currentQuestionIndex + 1} z {tasks.length}</Text>
+        <Text style={styles.timerText}>Czas: {currentQuestion.duration} sek</Text>
 
         <View style={styles.progressBarBackground}>
-          <View style={[styles.progressBarFill, { width: '90%' }]} />
+          <View style={[styles.progressBarFill, { width: `${((currentQuestionIndex + 1) / tasks.length) * 100}%` }]} />
         </View>
 
-        <Text style={styles.questionContent}>
-          Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla quam velit, vulputate eu pharetra nec, mattis ac neque. Duis vulputate commodo ...
-        </Text>
-        <Text style={styles.loremText}>
-          Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla quam velit, vulputate eu pharetra nec, mattis ac neque. Duis vulputate commodo ...
-        </Text>
+        <Text style={styles.questionContent}>{currentQuestion.question}</Text>
       </View>
 
       <View style={styles.buttonRow}>
-        <View style={styles.buttonContainer}>
-          <Button title="Odpowiedź A" onPress={() => handleAnswer('A')} />
-        </View>
-        <View style={styles.buttonContainer}>
-          <Button title="Odpowiedź B" onPress={() => handleAnswer('B')} />
-        </View>
-      </View>
-
-      <View style={styles.buttonRow}>
-        <View style={styles.buttonContainer}>
-          <Button title="Odpowiedź C" onPress={() => handleAnswer('C')} />
-        </View>
-        <View style={styles.buttonContainer}>
-          <Button title="Odpowiedź D" onPress={() => handleAnswer('D')} />
-        </View>
+        {currentQuestion.answers.map((answer, index) => (
+          <View key={index} style={styles.buttonContainerHalf}>
+            <Button title={answer.content} onPress={() => handleAnswer(answer.isCorrect)} />
+          </View>
+        ))}
       </View>
     </ScrollView>
   );
@@ -79,17 +104,14 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     marginVertical: 15,
   },
-  loremText: {
-    fontSize: 14,
-    fontStyle: 'italic',
-    color: '#555',
-  },
   buttonRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginVertical: 10,
   },
-  buttonContainer: {
+  buttonContainerHalf: {
     width: '48%',
+    marginVertical: 5,
   },
 });
