@@ -21,13 +21,13 @@ export default function ResultsScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    // Załaduj dane na początku
+   
     setResults(resultsData);
   }, []);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    // Symulacja odświeżania danych
+   
     setTimeout(() => {
       setResults((prevResults) => [
         { nick: 'Ewa', score: 19, total: 20, type: 'fizyka', date: '2022-11-24' },

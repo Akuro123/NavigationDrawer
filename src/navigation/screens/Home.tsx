@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage'; // Poprawny import
+import AsyncStorage from '@react-native-async-storage/async-storage'; 
 import { Button, Text } from '@react-navigation/elements';
 import { StyleSheet, View, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -12,8 +12,9 @@ export function Home() {
     const checkFirstLaunch = async () => {
       try {
         const hasLaunched = await AsyncStorage.getItem('hasLaunched');
+       
         if (hasLaunched === null) {
-          // Pierwsze uruchomienie
+          
           await AsyncStorage.setItem('hasLaunched', 'true');
           setIsFirstLaunch(true);
         } else {
@@ -28,7 +29,7 @@ export function Home() {
   }, []);
 
   if (isFirstLaunch === null) {
-    // Można wyświetlić spinner lub placeholder
+    
     return <Text>Loading...</Text>;
   }
 
