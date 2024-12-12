@@ -1,37 +1,69 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  RefreshControl,
+} from 'react-native';
+import resultsData from './results';
+
+type Result = {
+  nick: string;
+  score: number;
+  total: number;
+  type: string;
+  date: string;
+};
 
 export default function ResultsScreen() {
-  // Przykładowe dane
-  const data = [
-    { nick: 'Player1', point: 120, type: 'Type1', date: '2024-12-05' },
-    { nick: 'Player2', point: 150, type: 'Type2', date: '2024-12-06' },
-    { nick: 'Player3', point: 200, type: 'Type3', date: '2024-12-07' },
-    { nick: 'Player4', point: 180, type: 'Type4', date: '2024-12-08' },
-  ];
+  const [results, setResults] = useState<Result[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+   
+    setResults(resultsData);
+  }, []);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+   
+    setTimeout(() => {
+      setResults((prevResults) => [
+        { nick: 'Ewa', score: 19, total: 20, type: 'fizyka', date: '2022-11-24' },
+        ...prevResults,
+      ]);
+      setRefreshing(false);
+    }, 1500);
+  }, []);
+
+  const renderItem = ({ item }: { item: Result }) => (
+    <View style={styles.row}>
+      <Text style={styles.cell}>{item.nick}</Text>
+      <Text style={styles.cell}>{item.score}/{item.total}</Text>
+      <Text style={styles.cell}>{item.type}</Text>
+      <Text style={styles.cell}>{item.date}</Text>
+    </View>
+  );
 
   return (
     <View style={styles.container}>
-      {/* ScrollView pozwala na przewijanie tabeli w przypadku dużej ilości danych */}
-      <ScrollView contentContainerStyle={styles.table}>
-        {/* Nagłówki tabeli */}
-        <View style={styles.row}>
-          <Text style={styles.header}>Nick</Text>
-          <Text style={styles.header}>Point</Text>
-          <Text style={styles.header}>Type</Text>
-          <Text style={styles.header}>Date</Text>
-        </View>
-
-        {/* Wiersze z danymi */}
-        {data.map((item, index) => (
-          <View key={index} style={styles.row}>
-            <Text style={styles.cell}>{item.nick}</Text>
-            <Text style={styles.cell}>{item.point}</Text>
-            <Text style={styles.cell}>{item.type}</Text>
-            <Text style={styles.cell}>{item.date}</Text>
+      <FlatList
+        data={results}
+        keyExtractor={(item, index) => index.toString()}
+        renderItem={renderItem}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+        ListHeaderComponent={() => (
+          <View style={styles.headerRow}>
+            <Text style={styles.header}>Nick</Text>
+            <Text style={styles.header}>Score</Text>
+            <Text style={styles.header}>Type</Text>
+            <Text style={styles.header}>Date</Text>
           </View>
-        ))}
-      </ScrollView>
+        )}
+      />
     </View>
   );
 }
@@ -39,23 +71,27 @@ export default function ResultsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f7f7f7', // Jasne tło dla całej aplikacji
-    paddingTop: 40,
-    paddingHorizontal: 20,
+    backgroundColor: '#f7f7f7',
+    paddingTop: 20,
+    paddingHorizontal: 10,
   },
-  table: {
-    flexGrow: 1,
-    paddingBottom: 20,
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: '#ddd',
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginBottom: 10,
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
     backgroundColor: '#fff',
     paddingVertical: 12,
+    paddingHorizontal: 10,
     borderRadius: 8,
-    elevation: 2, // Delikatny cień
+    marginBottom: 10,
+    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -63,17 +99,15 @@ const styles = StyleSheet.create({
   },
   header: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'bold',
     color: '#333',
-    width: '24%',
     textAlign: 'center',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+    width: '25%',
   },
   cell: {
     fontSize: 14,
     color: '#555',
-    width: '24%',
     textAlign: 'center',
+    width: '25%',
   },
 });
