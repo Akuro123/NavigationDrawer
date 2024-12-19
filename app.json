@@ -30,7 +30,22 @@
           "image": "./assets/splash-icon.png"
         }
       ],
-      "react-native-edge-to-edge"
+      "react-native-edge-to-edge",
+      [
+        "expo-font",
+        {
+          "fonts": [
+            {
+              "src": "./assets/fonts/Montserrat-Light.ttf",
+              "fontFamily": "Montserrat-Light"
+            },
+            {
+              "src": "./assets/fonts/OpenSans_Condensed-BoldItalic.ttf",
+              "fontFamily": "OpenSans_Condensed-BoldItalic"
+            }
+          ]
+        }
+      ]
     ]
   }
 }

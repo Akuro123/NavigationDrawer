@@ -6,7 +6,7 @@ import {
   FlatList,
   RefreshControl,
 } from 'react-native';
-import resultsData from './results';
+import QuizRepo from '../../repo/QuizRepo';
 
 type Result = {
   nick: string;
@@ -21,21 +21,49 @@ export default function ResultsScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-   
-    setResults(resultsData);
+    const fetchResults = async () => {
+      try {
+        const data = await QuizRepo.getResults();
+        if (data) {
+         
+          const mappedResults = data.map((item: any) => ({
+            nick: item.nick,
+            score: item.score,
+            total: item.total,
+            type: item.type,
+            date: item.createdOn, 
+          }));
+          setResults(mappedResults);
+        }
+      } catch (error) {
+        console.error('Error fetching results:', error);
+      }
+    };
+  
+    fetchResults();
   }, []);
 
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-   
-    setTimeout(() => {
-      setResults((prevResults) => [
-        { nick: 'Ewa', score: 19, total: 20, type: 'fizyka', date: '2022-11-24' },
-        ...prevResults,
-      ]);
-      setRefreshing(false);
-    }, 1500);
+    try {
+      const data = await QuizRepo.getResults();
+      if (data) {
+        const mappedResults = data.map((item: any) => ({
+          nick: item.nick,
+          score: item.score,
+          total: item.total,
+          type: item.type,
+          date: item.createdOn,
+        }));
+        setResults(mappedResults); 
+      }
+    } catch (error) {
+      console.error('Error refreshing results:', error);
+    } finally {
+      setRefreshing(false); 
+    }
   }, []);
+  
 
   const renderItem = ({ item }: { item: Result }) => (
     <View style={styles.row}>
