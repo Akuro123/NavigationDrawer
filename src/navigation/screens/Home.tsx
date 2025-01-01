@@ -10,6 +10,9 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import { useFonts } from "expo-font";
 import QuizRepo from "../../repo/QuizRepo";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import NetInfo from "@react-native-community/netinfo"; 
+import _ from "lodash";
 
 interface Test {
   id: string;
@@ -19,22 +22,38 @@ interface Test {
   level: string;
 }
 
-export function Home() {
-  const navigation = useNavigation();
+export function Home(props: any) {
   const [tests, setTests] = useState<Test[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [fontsLoaded] = useFonts({
     "Montserrat-Light": require("../../assets/fonts/Montserrat-Light.ttf"),
     "OpenSans_Condensed-BoldItalic": require("../../assets/fonts/OpenSans_Condensed-BoldItalic.ttf"),
   });
 
+  const navigation = useNavigation(); 
+
   useEffect(() => {
     const fetchTests = async () => {
       setLoading(true);
       try {
-        const data = await QuizRepo.getAllTests();
-        if (data) {
-          setTests(data);
+        const netInfo = await NetInfo.fetch();
+        if (netInfo.isConnected) {
+          const data = await QuizRepo.getAllTests(); // Make sure this returns a proper array
+          if (data && Array.isArray(data)) {
+            const shuffledData = _.shuffle(data); // Shuffle only if data is an array
+            setTests(shuffledData);
+            await AsyncStorage.setItem("tests", JSON.stringify(shuffledData));
+          } else {
+            console.error("Invalid data format", data);
+          }
+        } else {
+          const storedTests = await AsyncStorage.getItem("tests");
+          if (storedTests) {
+            setTests(JSON.parse(storedTests));
+          } else {
+            console.error("No internet connection and no data in AsyncStorage.");
+          }
         }
       } catch (error) {
         console.error("Błąd podczas pobierania testów:", error);
@@ -46,32 +65,61 @@ export function Home() {
     fetchTests();
   }, []);
 
-  const navigateToTest = (testId: string) => {
-    switch (testId) {
-      case "62032610069ef9b2616c761e":
-        navigation.navigate("Test1" as never);
-        break;
-      case "62032610069ef9b2616c761c":
-        navigation.navigate("Test2" as never);
-        break;
-      case "62032610069ef9b2616c761d":
-        navigation.navigate("Test3" as never);
-        break;
-      case "62032610069ef9b2616c761b":
-        navigation.navigate("Test4" as never);
-        break;
-      default:
-        console.warn("Nieznany test ID:", testId);
+  const getTestIdFromName = async (testName: string): Promise<string | undefined> => {
+    try {
+      const tests = await QuizRepo.getAllTests();
+      const test = tests.find((test: any) => test.name === testName);
+      if (test) {
+        return test.id;
+      } else {
+        console.error('Test not found');
+        return undefined;
+      }
+    } catch (error) {
+      console.error('Error fetching tests:', error);
+      return undefined;
     }
   };
 
-  if (!fontsLoaded) {
-    return <ActivityIndicator size="large" color="#0000ff" />;
-  }
-
-  if (loading) {
-    return <ActivityIndicator size="large" color="#0000ff" />;
-  }
+  const onRefresh = async (testName?: string) => {
+    setRefreshing(true);
+    try {
+      if (testName) {
+        const testId = await getTestIdFromName(testName);
+        if (testId) {
+          const testDetails = await QuizRepo.getTestDetails(testId);
+          navigation.navigate('TestScreen', { item: testDetails });
+        } else {
+          console.error('Test not found');
+        }
+      } 
+    } catch (error) {
+      console.error('Error during refresh:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+  const checkAsyncStorage = async () => {
+    try {
+      const storedTests = await AsyncStorage.getItem('tests');
+      if (storedTests) {
+        const parsedTests = JSON.parse(storedTests);
+        
+    
+        const firstThreeTests = parsedTests.slice(0, 1);
+        
+        console.log('Zapisane w AsyncStorage', firstThreeTests);
+      } else {
+        console.log('Brak  w AsyncStorage.');
+      }
+    } catch (error) {
+      console.error('Błąd  AsyncStorage:', error);
+    }
+  };
+  
+  
+ 
+  checkAsyncStorage();
 
   return (
     <View style={styles.container}>
@@ -81,7 +129,7 @@ export function Home() {
             <TouchableOpacity
               key={test.id}
               style={styles.tile}
-              onPress={() => navigateToTest(test.id)}
+              onPress={() => onRefresh(test.name)} 
             >
               <Text style={styles.tileTitle}>{test.name}</Text>
               <View style={styles.tags}>

@@ -64,20 +64,17 @@ class QuizRepo {
             return undefined;
         }
     }
-    async saveResult(result: any) {
-        const response = await fetch(`${serverUrl}/quiz/result`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(result),
-        });
-        if (!response.ok) {
-          throw new Error('Nie udało się zapisać wyniku.');
-        }
-        return response.json();
-      }
-      
+    saveResults(data:any) {
+        return fetch(`${serverUrl}/quiz/result`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }).then((response) => response.json())
+            .then((json) => {
+                console.log('Succesfull');
+                return json;
+            }).catch((error) => {
+                console.error(error);
+            });
+    }
 }
-
 export default new QuizRepo();

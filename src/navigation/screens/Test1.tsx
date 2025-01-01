@@ -92,7 +92,7 @@ export default function Test1() {
         type: 'historia',
       };
 
-      await QuizRepo.saveResult(result);
+      await QuizRepo.saveResults(result);
       Alert.alert('Sukces!', 'Wynik został zapisany.');
     } catch (err) {
       console.error(err);
