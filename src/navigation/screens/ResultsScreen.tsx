@@ -7,6 +7,8 @@ import {
   RefreshControl,
 } from 'react-native';
 import QuizRepo from '../../repo/QuizRepo';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import NetInfo from '@react-native-community/netinfo';
 
 type Result = {
   nick: string;
@@ -19,51 +21,52 @@ type Result = {
 export default function ResultsScreen() {
   const [results, setResults] = useState<Result[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
 
   useEffect(() => {
-    const fetchResults = async () => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOnline(state.isConnected);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const fetchData = async () => {
+    
+    if (isOnline) {
       try {
         const data = await QuizRepo.getResults();
         if (data) {
-         
           const mappedResults = data.map((item: any) => ({
             nick: item.nick,
             score: item.score,
             total: item.total,
             type: item.type,
-            date: item.createdOn, 
+            date: item.createdOn,
           }));
           setResults(mappedResults);
+
+         
+          await AsyncStorage.setItem('storage-results', JSON.stringify(mappedResults));
         }
       } catch (error) {
         console.error('Error fetching results:', error);
       }
-    };
-  
-    fetchResults();
-  }, []);
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      const data = await QuizRepo.getResults();
-      if (data) {
-        const mappedResults = data.map((item: any) => ({
-          nick: item.nick,
-          score: item.score,
-          total: item.total,
-          type: item.type,
-          date: item.createdOn,
-        }));
-        setResults(mappedResults); 
-      }
-    } catch (error) {
-      console.error('Error refreshing results:', error);
-    } finally {
-      setRefreshing(false); 
+    } else {
+     
+      const cachedResult = JSON.parse(await AsyncStorage.getItem('storage-results') || '[]');
+      setResults(cachedResult);
     }
-  }, []);
-  
+  };
+
+  useEffect(() => {
+    fetchData(); 
+  }, [isOnline]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchData().then(() => setRefreshing(false));
+  }, [isOnline]);
 
   const renderItem = ({ item }: { item: Result }) => (
     <View style={styles.row}>
