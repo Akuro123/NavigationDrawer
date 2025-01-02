@@ -1,12 +1,13 @@
+import * as Network from "expo-network"; 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createDrawerNavigator, DrawerContent, DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawer';
-import {HeaderButton, Text } from '@react-navigation/elements';
+import { HeaderButton, Text } from '@react-navigation/elements';
 import {
   createStaticNavigation,
   StaticParamList,
 } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Button, Image,ScrollView,RefreshControl} from 'react-native';
+import { Button, Image, ScrollView, RefreshControl } from 'react-native';
 import bell from '../assets/bell.png';
 import newspaper from '../assets/newspaper.png';
 import { Home } from './screens/Home';
@@ -14,32 +15,28 @@ import { Profile } from './screens/Profile';
 import { Settings } from './screens/Settings';
 import { Updates } from './screens/Updates';
 import { NotFound } from './screens/NotFound';
-import NetInfo from "@react-native-community/netinfo";
 import ResultsScreen from './screens/ResultsScreen';
 import TestScreen from './screens/TestScreen';
 import QuizRepo from '../repo/QuizRepo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import _ from 'lodash';
-import React from 'react';
-
-import { useState ,useEffect } from 'react';
-
+import React, { useState, useEffect } from 'react';
 
 
 const setUpInitial = async () => {
-
   const [isConnectedToNetwork, setIsConnectedToNetwork] = useState<boolean | null>(null);
   await fetchAllDatabase();
 
-  const unsubscribe = NetInfo.addEventListener(state => {
-      if (state.isConnected !== isConnectedToNetwork) {
-          setIsConnectedToNetwork(state.isConnected);
-          if (!state.isConnected) {
-             console.log('No network connection', 1000);
-          } else {
-            console.log('Connected to network', 1000);
-          }
+
+  const unsubscribe = Network.addNetworkStateListener((state) => {
+    if (state.isConnected !== isConnectedToNetwork) {
+      setIsConnectedToNetwork(state.isConnected);
+      if (!state.isConnected) {
+        console.log('No network connection', 1000);
+      } else {
+        console.log('Connected to network', 1000);
       }
+    }
   });
 
   return unsubscribe;
@@ -47,7 +44,7 @@ const setUpInitial = async () => {
 
 const fetchAllDatabase = async () => {
   try {
-    const netInfo = await NetInfo.fetch();
+    const netInfo = await Network.getNetworkStateAsync(); 
     if (netInfo.isConnected) {
       const results = await QuizRepo.getResults();
       const tests = await QuizRepo.getAllTests();
@@ -59,52 +56,43 @@ const fetchAllDatabase = async () => {
 
       await AsyncStorage.setItem('storage-results', JSON.stringify(results));
       await AsyncStorage.setItem('storage-tests', JSON.stringify(tests));
-      await AsyncStorage.setItem(
-        'storage-tests-details',
-        JSON.stringify(testsDetails),
-      );
+      await AsyncStorage.setItem('storage-tests-details', JSON.stringify(testsDetails));
 
       console.log('Data successfully saved to AsyncStorage.');
     } else {
       console.log('No internet connection. Using cached data.');
+      const cachedTests = await AsyncStorage.getItem('storage-tests');
+      if (cachedTests) {
+        console.log('Loaded tests from cache.');
+      } else {
+        console.error('No cached tests available.');
+      }
     }
   } catch (error) {
     console.error('Error fetching database:', error);
   }
 };
 
-
-
 const fetchRandomTests = async () => {
   try {
-
     const result = await QuizRepo.getAllTests();
-    return _.shuffle(result)[0]; 
+    return _.shuffle(result); 
   } catch (error) {
     console.error('Error fetching tests from QuizRepo:', error);
 
-  
     const cachedResult = await AsyncStorage.getItem('storage-tests');
     if (cachedResult) {
-      return _.shuffle(JSON.parse(cachedResult))[0]; 
+      return _.shuffle(JSON.parse(cachedResult)); 
     } else {
-      throw new Error('No cached tests available.');
+      throw new Error('No cached tests');
     }
   }
 };
-const getRandomTest = async (props: any) => {
-  const test = await fetchRandomTests();
-  props.navigation.navigate('TestScreen', { item: test }); 
-}
+
 const getTestIdFromName = async (testName: string): Promise<string | undefined> => {
   try {
-  
     const tests = await QuizRepo.getAllTests();
-    
-  
     const test = tests.find((test: any) => test.name === testName);
-    
-    
     if (test) {
       return test.id;
     } else {
@@ -112,89 +100,117 @@ const getTestIdFromName = async (testName: string): Promise<string | undefined> 
       return undefined;
     }
   } catch (error) {
-    console.error('Error fetching tests:', error);
+   
     return undefined;
   }
 };
 
-
-
-
-
-
-
 const DrawerContentCustom = (props: any) => {
   const [testNames, setTestNames] = useState<string[]>([]);
-  const [refreshing, setRefreshing] = useState(false); 
+  const [refreshing, setRefreshing] = useState(false);
 
   const fetchAndSetTestNames = async () => {
     try {
-      const netInfo = await NetInfo.fetch();
+      const netInfo = await Network.getNetworkStateAsync(); 
       if (netInfo.isConnected) {
         const tests = await QuizRepo.getAllTests();
         const testNames = tests.map((test: any) => test.name);
         await AsyncStorage.setItem('storage-tests', JSON.stringify(tests));
         setTestNames(_.shuffle(testNames));
       } else {
-        console.log('No internet. Loading test names from cache.');
+       
         const cachedTests = await AsyncStorage.getItem('storage-tests');
         if (cachedTests) {
           const testNames = JSON.parse(cachedTests).map((test: any) => test.name);
           setTestNames(_.shuffle(testNames));
-        } else {
-          console.error('No cached test names available.');
-        }
+        } 
       }
     } catch (error) {
-      console.error('Error fetching test names:', error);
+      
     }
   };
-
-  const fetchRandomTests = async () => {
-    try {
-      const result = await QuizRepo.getAllTests();
-      return _.shuffle(result)[0];  
-    } catch (error) {
-      console.error('Error fetching tests from QuizRepo:', error);
-  
-      const cachedResult = await AsyncStorage.getItem('storage-tests');
-      if (cachedResult) {
-        return _.shuffle(JSON.parse(cachedResult))[0]; 
-      } else {
-        throw new Error('No cached tests available.');
-      }
-    }
-  };
-
 
   const onRefresh = async (testName?: string) => {
     setRefreshing(true);
     try {
       let randomTest;
+
       if (testName) {
-       
-        const testId = await getTestIdFromName(testName);
-        if (testId) {
-          const testDetails = await QuizRepo.getTestDetails(testId);
-          props.navigation.navigate('TestScreen', { item: testDetails });
-        } else {
-          console.error('Test not found');
-        }
+        const cachedTests = await AsyncStorage.getItem('storage-tests');
+        if (cachedTests) {
+          const tests = JSON.parse(cachedTests);
+          const test = tests.find((test: any) => test.name === testName);
+
+          if (test) {
+            props.navigation.navigate('TestScreen', { item: test });
+          } 
+        } 
       } else {
-        randomTest = await fetchRandomTests();
-        props.navigation.navigate('TestScreen', { item: randomTest });
+        const cachedTests = await AsyncStorage.getItem('storage-tests');
+        if (cachedTests) {
+          const tests = JSON.parse(cachedTests);
+          randomTest = _.shuffle(tests)[0];
+          props.navigation.navigate('TestScreen', { item: randomTest });
+        } 
       }
-      
+
       await fetchAndSetTestNames();
     } catch (error) {
-      console.error('Error refreshing test:', error);
+     
     }
     setRefreshing(false);
   };
+
+  const handleTestSelection = async (name: string) => {
+    try {
+      const testId = await getTestIdFromName(name);
+      let testDetails;
   
+      if (testId) {
+        try {
+          testDetails = await QuizRepo.getTestDetails(testId);
+        } catch (repoError) {
+          console.error('Error fetching test details from QuizRepo:', repoError);
+          const cachedTestsDetails = await AsyncStorage.getItem('storage-tests-details');
+          if (cachedTestsDetails) {
+            const parsedDetails = JSON.parse(cachedTestsDetails);
+            testDetails = parsedDetails[testId];
+          }
+        }
+      }
+  
+      if (testDetails) {
+        props.navigation.navigate('TestScreen', { item: testDetails });
+      } else {
+        
+      
+        const cachedTests = await AsyncStorage.getItem('storage-tests');
+        if (cachedTests) {
+          const tests = JSON.parse(cachedTests);
+          const test = tests.find((test: any) => test.name === name);
+          if (test) {
+            props.navigation.navigate('TestScreen', { item: test });
+          } else {
+            console.error('Test not found');
+          }
+        } else {
+          console.error('No cached tests');
+        }
+      }
+    } catch (error) {
+      console.error('Error', error);
+      const cachedTestsDetails = await AsyncStorage.getItem('storage-tests-details');
+      if (cachedTestsDetails) {
+        const parsedDetails = JSON.parse(cachedTestsDetails);
+        props.navigation.navigate('TestScreen', { item: parsedDetails });
+      } else {
+        console.error('No cached data');
+      }
+    }
+  };
+
   useEffect(() => {
     fetchAndSetTestNames();
-    setUpInitial();
   }, []);
 
   return (
@@ -204,12 +220,12 @@ const DrawerContentCustom = (props: any) => {
         title="Fetch All Tests"
         onPress={async () => {
           try {
-        
             await fetchAllDatabase();
-            console.log('All tests fetched and saved.');
+            console.log('fetched');
             fetchAndSetTestNames();
           } catch (error) {
-            console.error('Error fetching tests:', error);
+            console.error('Error', error);
+            alert('Error');
           }
         }}
       />
@@ -217,10 +233,10 @@ const DrawerContentCustom = (props: any) => {
         title="Fetch Random Test"
         onPress={async () => {
           try {
-         
-            await getRandomTest(props);
+            await fetchRandomTests();
           } catch (error) {
-            console.error('Error fetching random test:', error);
+          
+            alert('Error.');
           }
         }}
       />
@@ -232,34 +248,20 @@ const DrawerContentCustom = (props: any) => {
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
             }
           >
-           {testNames.map((name, index) => (
-  <Button
-    key={index}
-    title={name}
-    onPress={async () => {
-      try {
-        // Pobranie ID testu na podstawie jego nazwy
-        const testId = await getTestIdFromName(name);
-        
-        // Jeśli test ID zostało znalezione, przejdź do ekranu z testem
-        if (testId) {
-          const testDetails = await QuizRepo.getTestDetails(testId);
-          props.navigation.navigate('TestScreen', { item: testDetails });
-        } else {
-          console.error('Test not found');
-        }
-      } catch (error) {
-        console.error('Error fetching test details:', error);
-      }
-    }}
-  />
-))}
+            {testNames.map((name, index) => (
+              <Button
+                key={index}
+                title={name}
+                onPress={() => handleTestSelection(name)}
+              />
+            ))}
           </ScrollView>
         </>
       )}
     </DrawerContentScrollView>
   );
-}
+};
+
 
 const Drawer = createDrawerNavigator({
   screens: {
@@ -325,9 +327,7 @@ const RootStack = createNativeStackNavigator({
   },
 });
 
-
 export const Navigation = createStaticNavigation(RootStack);
-
 
 type RootStackParamList = StaticParamList<typeof RootStack>;
 
@@ -336,3 +336,4 @@ declare global {
     interface RootParamList extends RootStackParamList {}
   }
 }
+

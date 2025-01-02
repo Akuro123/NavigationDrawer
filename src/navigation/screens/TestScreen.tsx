@@ -5,10 +5,11 @@ import {
   Pressable,
   StyleSheet,
   ActivityIndicator,
+  Button,
 } from 'react-native';
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import NetInfo from "@react-native-community/netinfo";
+import * as Network from "expo-network";
 import QuizRepo from '../../repo/QuizRepo';
 import _, { result } from 'lodash';
 import { Text, HeaderButton } from '@react-navigation/elements';
@@ -45,28 +46,47 @@ const TestScreen = (props: any) => {
 
   const fetchTestDetails = async () => {
     try {
-      const details = await QuizRepo.getTestDetails(currentQuiz.id);
-      if (details) {
-        details.tasks = _.shuffle(details.tasks);
-        setQuizData(details.tasks);
-        setCurrentQuestion({ ...details.tasks[0], answers: _.shuffle(details.tasks[0].answers) });
-        setSeconds(details.tasks[0].duration);
+      if (isConnected) {
+        const details = await QuizRepo.getTestDetails(currentQuiz.id);
+        if (details) {
+          details.tasks = _.shuffle(details.tasks);
+          setQuizData(details.tasks);
+          setCurrentQuestion({ ...details.tasks[0], answers: _.shuffle(details.tasks[0].answers) });
+          setSeconds(details.tasks[0].duration);
+
+          
+          const cachedData = await AsyncStorage.getItem('storage-tests-details') || '{}';
+          const updatedCache = { ...JSON.parse(cachedData), [currentQuiz.id]: details };
+          await AsyncStorage.setItem('storage-tests-details', JSON.stringify(updatedCache));
+        }
+      } else {
+      
+        const cachedData = await AsyncStorage.getItem('storage-tests-details');
+        if (cachedData) {
+          const offlineDetails = JSON.parse(cachedData)[currentQuiz.id];
+          offlineDetails.tasks = _.shuffle(offlineDetails.tasks);
+          setQuizData(offlineDetails.tasks);
+          setCurrentQuestion({
+            ...offlineDetails.tasks[0],
+            answers: _.shuffle(offlineDetails.tasks[0].answers),
+          });
+          setSeconds(offlineDetails.tasks[0].duration);
+        }
       }
     } catch (error) {
       console.error('Error fetching test details:', error);
-      const cachedData = await AsyncStorage.getItem('storage-tests-details');
-      if (cachedData) {
-        const offlineDetails = JSON.parse(cachedData)[currentQuiz.id];
-        offlineDetails.tasks = _.shuffle(offlineDetails.tasks);
-        setQuizData(offlineDetails.tasks);
-        setCurrentQuestion({
-          ...offlineDetails.tasks[0],
-          answers: _.shuffle(offlineDetails.tasks[0].answers),
-        });
-        setSeconds(offlineDetails.tasks[0].duration);
-      }
     }
     setIsLoading(false);
+  };
+
+  const checkInternetConnection = async () => {
+    try {
+      const state = await Network.getNetworkStateAsync();
+      setIsConnected(state.isConnected);
+    } catch (error) {
+      console.error('Error checking internet connection:', error);
+      setIsConnected(false);
+    }
   };
 
   const handleNextQuestion = async (answer?: any) => {
@@ -84,34 +104,49 @@ const TestScreen = (props: any) => {
       setCurrentQuestion({ ...nextQuestion, answers: _.shuffle(nextQuestion.answers) });
       setSeconds(nextQuestion.duration);
     } else {
-      if (!isEnd) {
-        setIsEnd(true);
-        if (!hasSentResult) {
-          await sendQuizResult();
-          setHasSentResult(true);
-        }
-      }
+      setIsEnd(true);
     }
 
     setSelectedAnswer(null);
     setCorrectAnswer(null);
   };
 
+  const saveOfflineResults = async () => {
+    const offlineResults = {
+      quizId: currentQuiz?.id,
+      points,
+      total: quizData.length,
+      timestamp: new Date().toISOString(),
+    };
+
+    try {
+      const existingResults = await AsyncStorage.getItem('offline-quiz-results');
+      const results = existingResults ? JSON.parse(existingResults) : [];
+      results.push(offlineResults);
+      await AsyncStorage.setItem('offline-quiz-results', JSON.stringify(results));
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   const sendQuizResult = async () => {
     await QuizRepo.saveResults({
-      nick: 'rower',
+      nick: 'fistaszek',
       score: points,
       total: quizData.length,
       type: currentQuiz.tags?.join(',') || 'General',
     });
   };
 
-  useEffect(() => {
-    const checkConnection = NetInfo.addEventListener((state) => {
-      setIsConnected(state.isConnected);
-    });
+  const handleSubmitResults = async () => {
+    await saveOfflineResults();
+    if (isConnected) {
+      await sendQuizResult();
+    }
+  };
 
-    return () => checkConnection();
+  useEffect(() => {
+    checkInternetConnection();
   }, []);
 
   useEffect(() => {
@@ -130,12 +165,45 @@ const TestScreen = (props: any) => {
   }, [seconds]);
 
   if (isLoading) return <ActivityIndicator size="large" />;
-  if (!isConnected) return <Text style={styles.error}>Brak połączenia z Internetem! Korzystam z danych offline.</Text>;
+  if (!isConnected) {
+    if (isEnd && !hasSentResult) saveOfflineResults();
+    return (
+      <View style={styles.container}>
+        <Text style={styles.error}>Brak połączenia z Internetem </Text>
+        <Text>
+          Question {currentQuestionIndex + 1} of {quizData.length}
+        </Text>
+        <Text>Time Remaining: {seconds} seconds</Text>
+        <Text style={styles.questionText}>{currentQuestion?.question}</Text>
+        <FlatList
+          data={currentQuestion?.answers || []}
+          keyExtractor={(item, index) => `${item.content}-${index}`}
+          renderItem={({ item }) => (
+            <Pressable
+              style={[
+                styles.answer,
+                item.content === correctAnswer && styles.correctAnswer,
+                item.content === selectedAnswer && styles.selectedAnswer,
+              ]}
+              onPress={() => handleNextQuestion(item)}
+            >
+              <Text>{item.content}</Text>
+            </Pressable>
+          )}
+        />
+      </View>
+    );
+  }
+
   if (isEnd)
     return (
       <View style={styles.centered}>
         <Text style={styles.endText}>Quiz Finished!</Text>
-        <Text>Your Score: {points}/{quizData.length}</Text>
+        <Text style={styles.scoreText}>
+          Your Score: {points}/{quizData.length} ({((points / quizData.length) * 100).toFixed(2)}%)
+        </Text>
+        <Button title="Submit Results" onPress={handleSubmitResults} />
+        <View style={styles.buttonSpacer} />
         <HeaderButton
           onPress={() => {
             resetState();
@@ -146,6 +214,7 @@ const TestScreen = (props: any) => {
         </HeaderButton>
       </View>
     );
+  
 
   return (
     <View style={styles.container}>
@@ -188,6 +257,22 @@ const styles = StyleSheet.create({
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   endText: { fontSize: 24, fontWeight: 'bold' },
   error: { color: 'red', textAlign: 'center', marginTop: 20 },
+  scoreText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginVertical: 10,
+  },
+  feedbackText: {
+    fontSize: 16,
+    color: 'gray',
+    marginVertical: 10,
+    textAlign: 'center',
+  },
+  buttonSpacer: {
+    marginVertical: 20, 
+  },
+  
 });
 
 export default TestScreen;
+
